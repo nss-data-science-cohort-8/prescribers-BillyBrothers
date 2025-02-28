@@ -5,18 +5,21 @@
 -- 1. 
 --     a. Which prescriber had the highest total number of claims (totaled over all drugs)? Report the npi and the total number of claims.
 
+SELECT *
+FROM prescriber
+
 SELECT nppes_provider_first_name, npi, SUM(total_claim_count) AS max_claim_count
 FROM prescriber
 LEFT JOIN prescription
 USING(npi)
 WHERE total_claim_count IS NOT NULL  
 GROUP BY nppes_provider_first_name, npi
-ORDER BY max_claim_count DESC
+ORDER BY max_claim_count DESC;
 
 
 SELECT SUM(total_claim_count)
 FROM prescription
-GROUP BY npi
+GROUP BY npi;
 
     
 --     b. Repeat the above, but this time report the nppes_provider_first_name, nppes_provider_last_org_name,  specialty_description, and the total number of claims.
@@ -27,12 +30,10 @@ LEFT JOIN prescription
 USING(npi)
 WHERE total_claim_count IS NOT NULL  
 GROUP BY nppes_provider_first_name, nppes_provider_last_org_name, specialty_description, npi
-ORDER BY max_claim_count DESC
+ORDER BY max_claim_count DESC;
 
 -- 2. 
 --     a. Which specialty had the most total number of claims (totaled over all drugs)?
-
-
 
 SELECT specialty_description, SUM(total_claim_count) AS max_claim_count
 FROM prescriber
@@ -40,7 +41,7 @@ LEFT JOIN prescription
 USING(npi)
 WHERE total_claim_count IS NOT NULL  
 GROUP BY specialty_description
-ORDER BY max_claim_count DESC
+ORDER BY max_claim_count DESC;
 
 
 --     b. Which specialty had the most total number of claims for opioids?
@@ -56,7 +57,7 @@ FROM drug
 WHERE opioid_drug_flag = 'Y'
 )
 GROUP BY specialty_description
-ORDER BY max_claim_count DESC 
+ORDER BY max_claim_count DESC;
 
 
 --     c. **Challenge Question:** Are there any specialties that appear in the prescriber table that have no associated prescriptions in the prescription table?
@@ -66,19 +67,82 @@ ORDER BY max_claim_count DESC
 -- 3. 
 --     a. Which drug (generic_name) had the highest total drug cost?
 
+SELECT generic_name, SUM(total_drug_cost) AS TOTAL
+FROM prescription
+LEFT JOIN drug
+USING(drug_name)
+GROUP BY generic_name
+ORDER BY TOTAL DESC;
+
+
 --     b. Which drug (generic_name) has the hightest total cost per day? **Bonus: Round your cost per day column to 2 decimal places. Google ROUND to see how this works.**
 
+
+SELECT generic_name, ROUND(SUM(total_drug_cost)/SUM(total_day_supply), 2) AS total_cost_per_day
+FROM prescription
+LEFT JOIN drug
+USING(drug_name)
+GROUP BY generic_name
+ORDER BY total_cost_per_day DESC;
+
 -- 4. 
---     a. For each drug in the drug table, return the drug name and then a column named 'drug_type' which says 'opioid' for drugs which have opioid_drug_flag = 'Y', says 'antibiotic' for those drugs which have antibiotic_drug_flag = 'Y', and says 'neither' for all other drugs. **Hint:** You may want to use a CASE expression for this. See https://www.postgresqltutorial.com/postgresql-tutorial/postgresql-case/ 
+--     a. For each drug in the drug table, return the drug name and then a column named 'drug_type' which says 'opioid' for drugs which have opioid_drug_flag = 'Y', says 'antibiotic' for those drugs which have antibiotic_drug_flag = 'Y', and says 'neither' for all other drugs. **Hint:** You may want to use a CASE expression for this. See https://www.postgresqltutorial.com/postgresql-tutorial/postgresql-case/
+
+SELECT drug_name, 
+	CASE WHEN opioid_drug_flag = 'Y' THEN 'opioid'
+		 WHEN antibiotic_drug_flag = 'Y' THEN 'antibiotic'
+		 ELSE 'Neither' END AS drug_type
+FROM drug;
+
+SELECT *
+FROM prescription
 
 --     b. Building off of the query you wrote for part a, determine whether more was spent (total_drug_cost) on opioids or on antibiotics. Hint: Format the total costs as MONEY for easier comparision.
+
+
+SELECT *
+FROM prescription
+
+
+SELECT drug_type, CAST(SUM(total_drug_cost) as money) AS drug_cost
+FROM prescription
+INNER JOIN (
+SELECT drug_name,
+	CASE WHEN opioid_drug_flag = 'Y' THEN 'opioid'
+		 WHEN antibiotic_drug_flag = 'Y' THEN 'antibiotic'
+		 ELSE 'Neither' END AS drug_type
+		 FROM drug)
+		 AS drug2 
+USING(drug_name)
+WHERE
+	drug2.drug_type IN ('opioid', 'antibiotic')
+GROUP BY drug2.drug_type
+ORDER BY drug_cost DESC;
+
 
 -- 5. 
 --     a. How many CBSAs are in Tennessee? **Warning:** The cbsa table contains information for all states, not just Tennessee.
 
+SELECT COUNT(DISTINCT cbsaname)
+FROM cbsa 
+WHERE cbsaname LIKE '%TN%';
+
 --     b. Which cbsa has the largest combined population? Which has the smallest? Report the CBSA name and total population.
 
+SELECT SUM(population) as sum_pop, cbsaname
+FROM cbsa
+INNER JOIN population
+USING(fipscounty)
+GROUP BY cbsa, cbsaname
+ORDER BY sum_pop;
+
+
 --     c. What is the largest (in terms of population) county which is not included in a CBSA? Report the county name and population.
+
+SELECT *
+FROM cbsa
+INNER JOIN population
+USING(fipscounty)
 
 -- 6. 
 --     a. Find all rows in the prescription table where total_claims is at least 3000. Report the drug_name and the total_claim_count.
